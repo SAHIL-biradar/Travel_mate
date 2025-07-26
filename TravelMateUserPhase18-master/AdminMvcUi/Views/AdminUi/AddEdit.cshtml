@@ -1,0 +1,103 @@
+﻿@model AdminMvcUi.Models.PackagePro
+
+@{
+    ViewBag.Title = "Add/Edit Package";
+}
+
+<head>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .package-form-container {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+            .package-form-container h2 {
+                font-size: 2rem;
+                font-weight: bold;
+                margin-bottom: 20px;
+                color: #343a40;
+            }
+
+            .package-form-container label {
+                font-weight: 500;
+                color: #495057;
+            }
+
+            .package-form-container .form-control {
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 1rem;
+            }
+
+            .package-form-container button {
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: bold;
+                transition: all 0.3s ease;
+            }
+
+            .package-form-container .btn-primary {
+                background-color: #28a745;
+                border-color: #28a745;
+            }
+
+                .package-form-container .btn-primary:hover {
+                    background-color: #218838;
+                    border-color: #218838;
+                    transform: scale(1.05);
+                }
+
+            .package-form-container .btn-secondary {
+                background-color: #6c757d;
+                border-color: #6c757d;
+            }
+
+                .package-form-container .btn-secondary:hover {
+                    background-color: #5a6268;
+                    border-color: #5a6268;
+                    transform: scale(1.05);
+                }
+    </style>
+</head>
+
+<div class="container package-form-container">
+    <h2>@(Model.PackageId == 0 ? "Add Package" : "Edit Package")</h2>
+
+    <form asp-action="Save" method="post">
+        <div class="form-group">
+            <label for="PackageName">Package Name</label>
+            <input asp-for="PackageName" class="form-control" placeholder="Enter package name" />
+        </div>
+        <div class="form-group">
+            <label for="PackageDescription">Package Description</label>
+            <textarea asp-for="PackageDescription" class="form-control" placeholder="Enter package description"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="Price">Price</label>
+            <input asp-for="Price" class="form-control" placeholder="Enter price" />
+        </div>
+        <div class="form-group">
+            <label for="AvailableDates">Available Dates</label>
+            <input asp-for="AvailableDates" class="form-control" type="date" />
+        </div>
+        <div class="form-group">
+            <label for="IncludedHotels">Included Hotels</label>
+            <input asp-for="IncludedHotels" class="form-control" placeholder="Enter included hotels" />
+        </div>
+        <div class="form-group">
+            <label for="IncludedCabs">Included Cabs</label>
+            <input asp-for="IncludedCabs" class="form-control" placeholder="Enter included cabs" />
+        </div>
+        <div class="form-group">
+            <label for="Amenities">Amenities</label>
+            <input asp-for="Amenities" class="form-control" placeholder="Enter amenities" />
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a asp-action="PackageProIndex" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>

@@ -1,0 +1,222 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using TravelMate2.Services
+@using TravelMateUI.Services
+@using TravelMate.Models
+@inject UserInfoService userInfoService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject LocalStorageService localStorageService
+@inject ICustomAuthenticationStateProvider authStateProvider
+@attribute [Authorize(Roles = "hotel_owner")]
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Mate</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        html,body{
+            display:block;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+
+        .header {
+            background: #007bff;
+            color: #fff;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+            .header h1 {
+                margin: 0;
+                font-size: 2.5rem;
+                font-weight: bold;
+            }
+
+        .navbar-nav .nav-link {
+            color: #fff;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+
+            .navbar-nav .nav-link:hover {
+                color: #b3d9ff;
+            }
+
+            .navbar-nav .nav-link.active {
+                background: #004494;
+                border-radius: 5px;
+            }
+
+        .dropdown-menu {
+            background-color: #0056b3;
+            border: none;
+        }
+
+        .dropdown-item {
+            color: #fff;
+        }
+
+            .dropdown-item:hover {
+                background-color: #004494;
+            }
+
+        footer.footer {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 40px 0;
+        }
+
+            footer.footer a {
+                color: #ffffff;
+                transition: color 0.3s;
+            }
+
+                footer.footer a:hover {
+                    color: #b3d9ff;
+                }
+
+            footer.footer h5 {
+                font-weight: bold;
+                margin-bottom: 1rem;
+                color: #b3d9ff;
+            }
+
+        .social-icons a {
+            color: #fff;
+            margin: 0 10px;
+            font-size: 1.5rem;
+        }
+
+            .social-icons a:hover {
+                color: #b3d9ff;
+            }
+
+        .page {
+            min-height: calc(100vh - 120px); /* Adjust based on footer height */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <div class="header">
+        <div class="container">
+            <h1>Travel Mate</h1>
+            <nav class="navbar navbar-expand-lg navbar-dark">
+                <div class="collapse navbar-collapse">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/hotel-owner-home">Manage Hotels</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="javascript:void(0)" @onclick="ScrollToManageBookings">Manage Bookings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/register-hotel">Add New Hotel</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/edit-profile">Edit Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" @onclick="Logout">Logout</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="text-white mr-3">Welcome, @user.Username</span>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="page">
+        <main>
+            <article>
+                @Body
+            </article>
+        </main>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="footer mt-auto">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 text-center text-md-left">
+                    <h5>Travel Mate</h5>
+                    <p>Your reliable partner for all your travel needs.</p>
+                </div>
+                <div class="col-md-4 text-center">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/aboutus">About Us</a></li>
+                        <li><a href="/ContactUs">Contact Us</a></li>
+                        <li><a href="/privacy-policy">Privacy Policy</a></li>
+                        <li><a href="/tas">Terms of Service</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 text-center text-md-right">
+                    <h5>Follow Us</h5>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-12 text-center">
+                    <span>© 2024 Travel Mate - All Rights Reserved</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
+
+@code {
+    // private async Task ScrollToManageHotels()
+    // {
+    //     // await JSRuntime.InvokeVoidAsync("scrollToSection", "manage-hotels");
+    // }
+    private User user{ get; set; }=new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await authStateProvider.GetAuthenticationStateAsync();
+            user = userInfoService._currentUser;
+        }
+        catch(Exception ex)
+        {
+            
+        }
+    }
+
+    private async Task ScrollToManageBookings()
+    {
+        // await JSRuntime.InvokeVoidAsync("scrollToSection", "manage-bookings");
+    }
+
+    private async Task Logout()
+    {
+        await localStorageService.RemoveItemAsync("currentUser");
+        userInfoService.ClearUser();
+        NavigationManager.NavigateTo("/");
+    }
+}

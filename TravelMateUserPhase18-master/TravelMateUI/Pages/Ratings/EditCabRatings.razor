@@ -1,0 +1,78 @@
+﻿@page "/edit-cab-rating/{CabRatingId:int}"
+@using TravelMateUI.Services.Ratings
+@using TravelMateUI.Models.Ratings
+@using System.Text.Json
+@using TravelMate.Models
+@inject ICabRatingUIService CabRatingService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container">
+    <h2 class="text-center mb-4">Edit Cab Rating</h2>
+
+    @if (cabRating == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm p-4">
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="ratingInput" class="form-label">Rating:</label>
+                        <input id="ratingInput" type="number" @bind="cabRating.Rating" min="1" max="5" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reviewTextarea" class="form-label">Review:</label>
+                        <textarea id="reviewTextarea" @bind="cabRating.Review" class="form-control" rows="4"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-primary me-2" @onclick="UpdateCabRating">Update</button>
+                        <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int CabRatingId { get; set; }
+
+    private TravelMateUI.Models.Ratings.CabRating cabRating;
+    private int currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+        var user = JsonSerializer.Deserialize<User>(userJson);
+
+        currentUserId = user.UserId;
+        cabRating = await CabRatingService.GetCabRatingById(CabRatingId, currentUserId);
+    }
+
+    private async Task UpdateCabRating()
+    {
+        await CabRatingService.UpdateCabRating(cabRating, currentUserId);
+        Navigation.NavigateTo("/myratings");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/myratings");
+    }
+}
+
+<style>
+    .form-control {
+        border-radius: .25rem;
+    }
+</style>

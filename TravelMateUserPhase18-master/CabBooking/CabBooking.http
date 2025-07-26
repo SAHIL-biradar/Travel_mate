@@ -1,0 +1,6 @@
+@CabBooking_HostAddress = http://localhost:5005
+
+GET {{CabBooking_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

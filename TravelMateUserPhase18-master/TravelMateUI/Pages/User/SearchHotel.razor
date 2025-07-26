@@ -1,0 +1,287 @@
+﻿@page "/hotels/{hotelBookingString}"
+@using Microsoft.AspNetCore.WebUtilities
+@using System.Text.Json
+@using TravelMateUI.Services
+@using TravelMate.Models
+@using TravelMateUI.Models
+@using static TravelMateUI.Pages.Home
+@inject NavigationManager NavigationManager
+@inject ISearchUIService SearchService
+@inject IWishListUIService WishListService
+@inject IJSRuntime JSRuntime
+
+<style>
+    .hotel-card {
+        border-radius: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+        .hotel-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+    .card-img {
+        border-top-left-radius: 15px;
+        border-bottom-left-radius: 15px;
+        height: 200px;
+        width: 100%;
+        object-fit: cover;
+    }
+
+    .card-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    .card-text {
+        font-size: 1rem;
+        color: #555;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1100;
+        min-width: 250px;
+    }
+
+    .toast-body {
+        font-size: 1rem;
+    }
+
+    .container {
+        max-width: 1200px;
+    }
+</style>
+
+<div class="container my-4">
+    <div class="search-bar" id="hotelSearchBar">
+        <EditForm Model="@hotelBooking" OnValidSubmit="SubmitSearch">
+            <DataAnnotationsValidator />
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label for="cityName">Add Location</label>
+                    <InputText @bind-Value="hotelBooking.CityName" id="cityName" class="form-control" placeholder="Where are you going?" required />
+                    <ValidationMessage For="@(() => hotelBooking.CityName)" />
+                </div>
+                <div class="col-md-3">
+                    <label for="checkInDate">Check-in</label>
+                    <InputDate @bind-Value="hotelBooking.CheckInDate" id="checkInDate" class="form-control" min="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    <ValidationMessage For="@(() => hotelBooking.CheckInDate)" />
+                </div>
+                <div class="col-md-3">
+                    <label for="checkOutDate">Check-out</label>
+                    <InputDate @bind-Value="hotelBooking.CheckOutDate" id="checkOutDate" class="form-control" min="@(hotelBooking.CheckInDate?.AddDays(1).ToString("yyyy-MM-dd") ?? DateTime.Now.AddDays(1).ToString("yyyy-MM-dd"))" />
+                    <ValidationMessage For="@(() => hotelBooking.CheckOutDate)" />
+                </div>
+                <div class="col-md-2">
+                    <label for="guests">Guests</label>
+                    <InputSelect @bind-Value="hotelBooking.Guests" id="guests" class="form-control">
+                        @for (int i = 1; i <= 4; i++)
+                        {
+                            <option value="@i">@i</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => hotelBooking.Guests)" />
+                </div>
+                <div class="col-md-12 text-center mt-3">
+                    <button type="submit" class="btn btn-primary w-100">Search Hotel</button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+
+    @if (hotels == null)
+    {
+        <div class="text-center" >
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (hotels.Count == 0)
+    {
+        <div class="text-center">
+            <p class="lead">No hotels found in @hotelBooking.CityName.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var hotel in hotels)
+            {
+                <div class="col-md-12 mb-4">
+                    <div class="card hotel-card">
+                        <div class="row no-gutters">
+                            <div class="col-md-4">
+                                <img src="@hotel.HotelImage" class="card-img" alt="@hotel.Name">
+                            </div>
+                            <div class="col-md-8">
+                                <div class="card-body">
+                                    <h5 class="card-title">@hotel.Name</h5>
+                                    <p class="card-text">@hotel.Description</p>
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fas fa-map-marker-alt text-primary mr-2"></i>
+                                        <span>@hotel.City, @hotel.Country</span>
+                                    </div>
+                                    <div class="d-flex flex-wrap mb-3">
+                                        <!-- Amenities with Font Awesome icons -->
+                                        <span class="badge badge-info mr-2">
+                                            <i class="fas fa-wifi"></i> WiFi
+                                        </span>
+                                        <span class="badge badge-info mr-2">
+                                            <i class="fas fa-swimmer"></i> Pool
+                                        </span>
+                                        <span class="badge badge-info mr-2">
+                                            <i class="fas fa-parking"></i> Parking
+                                        </span>
+                                        <span class="badge badge-info">
+                                            <i class="fas fa-concierge-bell"></i> Service
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <button class="btn btn-primary" @onclick="() => ViewRooms(hotel.HotelId, hotel.Name)">
+                                            View Rooms
+                                        </button>
+                                        <button class="btn btn-secondary" @onclick="() => AddToWishList(hotel)">
+                                            <i class="fas fa-heart"></i> Add to Wishlist
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<div class="toast" id="wishlistToast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+        <strong class="mr-auto text-success">Success</strong>
+        <small>Just now</small>
+        <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+            <span aria-hidden="true">×</span>
+        </button>
+    </div>
+    <div class="toast-body">
+        <i class="fas fa-check-circle text-success"></i> Added to Wishlist!
+    </div>
+</div>
+
+<div class="toast" id="loginToast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+        <strong class="mr-auto text-danger">Login Required</strong>
+        <small>Just now</small>
+        <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+            <span aria-hidden="true">×</span>
+        </button>
+    </div>
+    <div class="toast-body">
+        <i class="fas fa-exclamation-circle text-danger"></i> Please log in to add to Wishlist!
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter]
+    public string hotelBookingString { get; set; }
+    private List<Hotel> hotels;
+    private SearchModel hotelBooking { get; set; } = new SearchModel();
+    private int currentUserId { get; set; } // Assume you get this from the authentication context
+
+    protected override async Task OnInitializedAsync()
+    {
+        hotelBooking = JsonSerializer.Deserialize<SearchModel>(hotelBookingString);
+        await LoadHotels();
+    }
+
+    private async Task LoadHotels()
+    {
+        var allHotels = await SearchService.GetAllHotels();
+        hotels = allHotels.Where(h => h.City.Equals(hotelBooking.CityName, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private async Task SubmitSearch()
+    {
+        // Serialize the search model and update the URL with the new search criteria
+        var newHotelBookingString = JsonSerializer.Serialize(hotelBooking);
+        NavigationManager.NavigateTo($"/hotels/{newHotelBookingString}");
+
+        // Reload the hotels based on the new criteria
+        await LoadHotels();
+    }
+
+    private async Task AddToWishList(Hotel hotel)
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+
+        if (string.IsNullOrEmpty(userJson))
+        {
+            // Show a login required message
+            await JSRuntime.InvokeVoidAsync("eval", @"
+            var toastEl = document.getElementById('loginToast');
+            var toast = new bootstrap.Toast(toastEl, { delay: 3000 }); // Toast stays for 3 seconds
+            toast.show();
+        ");
+            return;
+        }
+
+        var user = JsonSerializer.Deserialize<User>(userJson); // Deserialize user from local storage
+        currentUserId = user?.UserId ?? 0;
+
+        var wishListItem = new WishListTable
+            {
+                HotelId = hotel.HotelId,
+                UserId = currentUserId,
+                HotelImage = hotel.HotelImage,
+                HotelName = hotel.Name
+            };
+
+        await WishListService.AddWishListItem(wishListItem, currentUserId);
+
+        // Show a success message
+        await JSRuntime.InvokeVoidAsync("eval", @"
+        var toastEl = document.getElementById('wishlistToast');
+        var toast = new bootstrap.Toast(toastEl, { delay: 3000 }); // Toast stays for 3 seconds
+        toast.show();
+    ");
+    }
+
+    private async Task ViewRooms(int hotelId, string hotelName)
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+
+        if (string.IsNullOrEmpty(userJson))
+        {
+            // Redirect to login page if user is not logged in
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            // Logic to view rooms
+            NavigationManager.NavigateTo($"/rooms/{hotelId}/{hotelName}/{hotelBookingString}");
+        }
+    }
+}

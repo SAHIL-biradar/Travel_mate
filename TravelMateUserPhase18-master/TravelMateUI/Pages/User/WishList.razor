@@ -1,0 +1,145 @@
+﻿@page "/wishlist"
+@using System.Text.Json
+@using TravelMate.Models
+@using TravelMateUI.Models
+@using TravelMateUI.Services
+@inject IWishListUIService WishListService
+@inject IJSRuntime JSRuntime
+
+<div class="text-center">
+    <h3 class="hover-card">My Wish List</h3>
+</div>
+
+@if (wishListItems == null)
+{
+    <p>Loading...</p>
+}
+else if (!wishListItems.Any())
+{
+    <div class="no-items-container">
+        <div class="no-items-content">
+            <img src="./images5.png" alt="Empty Wishlist" class="no-items-image" />
+            <h4>Your wish list is empty!</h4>
+            <p>Start exploring and add your favorite hotels to your wish list.</p>
+            <a href="/" class="btn btn-primary explore-button">Explore Hotels</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container">
+        <div class="row">
+            @foreach (var item in wishListItems)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card hover-card">
+                        <div class="card-body">
+                            <h5 class="card-title">Hotel ID: @item.HotelId</h5>
+                            <p class="card-text">Name: @item.HotelName</p>
+                            <p class="card-text">
+                                <img src="./@item.HotelImage" class="img-fluid" style="max-height: 200px; width: 100%; object-fit: cover;" />
+                            </p>
+                            <p class="card-text">Added on: @item.CreatedAt.ToShortDateString()</p>
+                            <button class="btn btn-danger" @onclick="() => DeleteWishListItem(item.WishListId)">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+}
+
+@code {
+    private List<WishListTable> wishListItems;
+    private int userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWishListItems();
+    }
+
+    private async Task LoadWishListItems()
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+        var user = JsonSerializer.Deserialize<User>(userJson); // Deserialize user from local storage
+        userId = user?.UserId ?? 0; // Set userId or handle error
+
+        if (userId > 0)
+        {
+            wishListItems = await WishListService.GetAllWishListItems(userId);
+        }
+        else
+        {
+            // Handle case where userId is not available or invalid
+            wishListItems = new List<WishListTable>();
+        }
+    }
+
+    private async Task DeleteWishListItem(int wishListId)
+    {
+        if (userId > 0)
+        {
+            await WishListService.DeleteWishListItem(wishListId, userId);
+            await LoadWishListItems(); // Refresh the list after deletion
+        }
+    }
+}
+
+<style>
+    .hover-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        transition: box-shadow 0.3s ease-in-out, background-color 0.3s ease-in-out;
+    }
+
+        .hover-card:hover {
+            background-color: #e9ecef;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+    .no-items-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 60vh;
+        text-align: center;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-items-content {
+        max-width: 500px;
+    }
+
+    .no-items-image {
+        max-width: 100%;
+        height: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    h4 {
+        font-weight: bold;
+        color: #343a40;
+        margin-bottom: 1rem;
+    }
+
+    p {
+        color: #6c757d;
+        margin-bottom: 2rem;
+    }
+
+    .explore-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 50px;
+    }
+
+        .explore-button:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+</style>

@@ -1,0 +1,162 @@
+﻿@model List<AdminMvcUi.Models.User>
+
+@{
+    ViewBag.Title = "Admin User Management";
+}
+
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .admin-panel {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .table thead {
+            background-color: #343a40;
+            color: white;
+        }
+
+        .btn-primary-custom {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+
+            .btn-primary-custom:hover {
+                background-color: #218838;
+                border-color: #218838;
+                color: white;
+                transform: scale(1.05);
+            }
+
+        .filter-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-danger[disabled] {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #343a40;
+        }
+
+            .page-title::after {
+                content: "";
+                display: block;
+                width: 50px;
+                height: 3px;
+                background-color: #28a745;
+                margin: 10px auto;
+                border-radius: 5px;
+            }
+    </style>
+</head>
+
+<div class="container mt-4">
+    <h2 class="page-title">Admin User Management</h2>
+
+    <div class="admin-panel">
+        <div class="filter-container">
+            <div class="row flex-grow-1">
+                <div class="col-md-6">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search by Username" onkeyup="filterUsers()">
+                </div>
+                <div class="col-md-4">
+                    <select id="userTypeFilter" class="form-control" onchange="filterUsers()">
+                        <option value="">All User Types</option>
+                        <option value="User">User</option>
+                        <option value="Hotel_Owner">Hotel Owner</option>
+                        <option value="Driver_Client">Driver Client</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <a href="@Url.Action("PackageProIndex", "AdminUi")" class="btn btn-primary-custom">Package Pro</a>
+            </div>
+        </div>
+
+        @if (Model != null && Model.Any())
+        {
+            <table class="table table-striped table-bordered" id="userTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Nationality</th>
+                        <th>UserType</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr id="row-@user.UserId">
+                            <td class="username-cell">@user.Username</td>
+                            <td>@user.Email</td>
+                            <td>@user.Nationality</td>
+                            <td class="usertype-cell">@user.UserType</td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" onclick="deleteUser(@user.UserId)" @(user.UserType == UserType.Admin ? "disabled" : "")>Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                No users found.
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                $.ajax({
+                    url: '@Url.Action("Delete", "AdminUi")/' + userId,
+                    type: 'DELETE',
+                    success: function () {
+                        $('#row-' + userId).remove();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Error deleting user: ' + error);
+                    }
+                });
+            }
+        }
+
+        function filterUsers() {
+            var input = $('#searchInput').val().toLowerCase();
+            var userType = $('#userTypeFilter').val().toLowerCase();
+
+            $('#userTable tbody tr').filter(function () {
+                var usernameMatch = $(this).find('.username-cell').text().toLowerCase().indexOf(input) > -1;
+                var userTypeMatch = userType === "" || $(this).find('.usertype-cell').text().toLowerCase() === userType;
+
+                $(this).toggle(usernameMatch && userTypeMatch);
+            });
+        }
+    </script>
+}

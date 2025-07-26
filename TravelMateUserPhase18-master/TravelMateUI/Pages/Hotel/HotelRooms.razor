@@ -1,0 +1,127 @@
+﻿@page "/hotel-rooms/{hotelId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using TravelMate.Models
+@using TravelMate2.Services
+@using TravelMateUI.Services
+@layout MinimalLayout
+@inject IRoomUIService RoomService
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "hotel_owner")]
+
+
+
+<div class="container mt-4">
+    <h2 class="text-center mb-4">Rooms in Hotel</h2>
+
+    @if (rooms != null && rooms.Count > 0)
+    {
+        <div class="row">
+            @foreach (var room in rooms)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card hover-card">
+                        <div class="card-body">
+                            <h5 class="card-title">@room.RoomType</h5>
+                            <p class="card-text text-muted">Price: @room.Price</p>
+                            <p class="card-text text-muted">Amenities: @room.Amenities</p>
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="availabilitySwitch_@room.RoomId" checked="@room.AvailabilityStatus.Equals("True", StringComparison.OrdinalIgnoreCase)" @onchange="(e) => ToggleAvailabilityStatus(room, e.Value)">
+                                <label class="form-check-label" for="availabilitySwitch_@room.RoomId">
+                                    Available: @room.AvailabilityStatus
+                                </label>
+                            </div>
+                            <a href="/add-rooms/@hotelId/@room.RoomId" class="btn btn-primary btn-sm mt-3">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning text-center">No rooms found.</div>
+    }
+</div>
+<div class="text-center mt-4">
+    <button class="btn btn-primary" @onclick="NavigateToAddRoomsPage">Add Rooms</button>
+</div>
+
+@code {
+    [Parameter]
+    public int hotelId { get; set; }
+    private List<Room> rooms = new();
+
+    private void NavigateToAddRoomsPage()
+    {
+        NavigationManager.NavigateTo($"/add-rooms/{hotelId}");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            rooms = await RoomService.GetAll(hotelId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving rooms: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleAvailabilityStatus(Room room, object newValue)
+    {
+        var isAvailable = (bool)newValue;
+        room.AvailabilityStatus = isAvailable ? "True" : "False";
+        await RoomService.Update(room, room.RoomId);
+    }
+}
+
+<style>
+    .hover-card {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        transition: box-shadow 0.3s ease-in-out, background-color 0.3s ease-in-out;
+    }
+
+        .hover-card:hover {
+            background-color: #e9ecef;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-weight: bold;
+        color: #007bff;
+    }
+
+    .card-text {
+        margin-bottom: 0.5rem;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #004085;
+        }
+
+    .form-check-input:checked {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .form-check-input {
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        cursor: pointer;
+        font-weight: bold;
+    }
+</style>

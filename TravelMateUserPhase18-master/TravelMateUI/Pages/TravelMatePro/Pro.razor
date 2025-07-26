@@ -1,0 +1,211 @@
+﻿@page "/Pro"
+@using TravelMate2.Services
+@using TravelMateUI.Models
+@using TravelMateUI.Services
+@inject IPackageProUIService PackageService
+@inject NavigationManager Navigation
+
+<style>
+    .package-card {
+        border-radius: 15px;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+
+        .package-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
+    .package-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .package-card:hover .package-image {
+        transform: scale(1.1);
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        background-color: #fff;
+        position: relative;
+    }
+
+    .card-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .price-text {
+        font-size: 1.3rem;
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .card-footer {
+        background-color: transparent;
+        border-top: none;
+        padding: 0.5rem 1.5rem 1.5rem;
+    }
+
+    .btn-outline-primary {
+        border-radius: 50px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+    }
+
+        .btn-outline-primary:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+    .add-package-btn {
+        background: linear-gradient(45deg, #28a745, #218838);
+        border-radius: 50px;
+        font-size: 1.2rem;
+        padding: 0.75rem 2rem;
+        color: white;
+        transition: background 0.3s ease;
+    }
+
+        .add-package-btn:hover {
+            background: linear-gradient(45deg, #218838, #28a745);
+        }
+
+    .package-details {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        position: relative;
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .keyframes fadeIn {
+        from
+
+    {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    }
+
+    .container-fluid {
+        padding: 2rem;
+        background-color: #e0e7ff;
+        background-image: url('your-artistic-background-image.jpg');
+        background-size: cover;
+        background-position: center;
+        background-blend-mode: overlay;
+    }
+
+    .mt-4 {
+        margin-top: 2rem;
+    }
+
+    .text-center h2 {
+        color: #333;
+        font-family: 'Brush Script MT', cursive;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+</style>
+
+<div class="container-fluid">
+    <h2 class="text-center  mb-5">Explore Our Exquisite Travel Packages</h2>
+
+    @if (packages == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var package in packages)
+            {
+                <div class="col-md-4 mb-4">
+                    <div class="card package-card shadow-sm">
+                        <img src="@GetRandomImageUrl()" alt="@package.PackageName" class="package-image">
+                        <div class="card-body">
+                            <h5 class="card-title">@package.PackageName</h5>
+                            <p class="card-text">@package.PackageDescription.Substring(0, Math.Min(100, package.PackageDescription.Length))...</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">@package.AvailableDates</span>
+                                <span class="price-text">₹@package.Price</span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-outline-primary btn-sm btn-block" @onclick="() => ToggleDetails(package.PackageId)">
+                                @(showDetails == package.PackageId ? "Hide Details" : "Show Details")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                @if (showDetails == package.PackageId)
+                {
+                    <div class="col-12 mb-4">
+                        <div class="package-details">
+                            <h5>@package.PackageName Details</h5>
+                            <p><strong>Included Hotels:</strong> @package.IncludedHotels</p>
+                            <p><strong>Description:</strong> @package.PackageDescription</p>
+                            <p><strong>Amenities:</strong> @package.Amenities</p>
+                            <p><strong>Services:</strong> @package.IncludedCabs</p>
+                            <p><strong>Available Dates:</strong> @package.AvailableDates</p>
+                            <button class="btn btn-primary" @onclick="() => BookPackage(package.PackageId)">Book Now</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+       
+    }
+</div>
+
+@code {
+    private List<PackagePro> packages;
+    private int? showDetails;
+
+    protected override async Task OnInitializedAsync()
+    {
+        packages = await PackageService.GetAll();
+    }
+
+    private void ToggleDetails(int packageId)
+    {
+        showDetails = showDetails == packageId ? null : packageId;
+    }
+
+  
+    private void BookPackage(int packageId)
+    {
+        // Implement booking logic here
+        Navigation.NavigateTo($"/BookingConfirmation");
+    }
+
+    private string GetRandomImageUrl()
+    {
+        // Replace with actual image URLs related to your packages
+        string[] imageUrls = {
+            "./image1.jpg",
+            "./image2.jpg",
+            "./image4.jpg",
+            "./OIP1.jpg"
+    };
+        Random rnd = new Random();
+        return imageUrls[rnd.Next(imageUrls.Length)];
+    }
+}

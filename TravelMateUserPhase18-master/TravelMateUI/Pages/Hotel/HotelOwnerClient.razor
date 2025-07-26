@@ -1,0 +1,339 @@
+﻿@page "/hotel-owner-home"
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using TravelMate.Models
+@using TravelMate2.Services
+@using TravelMateUI.Services
+@layout MinimalLayout
+@inject ICustomAuthenticationStateProvider authStateProvider
+@inject IHotelBookingUIService HotelBookingUIService
+@inject ISearchUIService SearchUIService
+@inject IHotelUIService HotelService
+@inherits LayoutComponentBase
+@inject UserInfoService userInfoService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "hotel_owner")]
+
+<!DOCTYPE html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Owner Dashboard - Travel Mate</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+
+        .header {
+            background: #007bff;
+            color: #fff;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+
+        .navbar-nav .nav-link {
+            color: #fff;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: #b3d9ff;
+        }
+
+        .navbar-nav .nav-link.active {
+            background: #004494;
+            border-radius: 5px;
+        }
+
+        .dropdown-menu {
+            background-color: #0056b3;
+            border: none;
+        }
+
+        .dropdown-item {
+            color: #fff;
+        }
+
+        .dropdown-item:hover {
+            background-color: #004494;
+        }
+
+        .dashboard-section {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+
+        .dashboard-section h2 {
+            color: #007bff;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .dashboard-card {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .dashboard-card h4 {
+            margin-bottom: 20px;
+            font-size: 1.75rem;
+            color: #0056b3;
+        }
+
+        .dashboard-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .dashboard-card ul li {
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            transition: background 0.3s, transform 0.3s;
+        }
+
+        .dashboard-card ul li:hover {
+            background: #f1f1f1;
+            transform: scale(1.02);
+        }
+
+        .dashboard-card img {
+            border-radius: 8px;
+            max-width: 150px;
+            margin-right: 15px;
+        }
+
+        .filter-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .filter-button:hover {
+            background-color: #0056b3;
+        }
+
+        .cta-button {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: #28a745;
+            border: none;
+            border-radius: 5px;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .cta-button:hover {
+            background-color: #218838;
+        }
+
+        .footer {
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 40px 0;
+            margin-top: 20px;
+        }
+
+        .footer a {
+            color: #ffffff;
+            transition: color 0.3s;
+        }
+
+        .footer a:hover {
+            color: #b3d9ff;
+        }
+
+        .footer h5 {
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #b3d9ff;
+        }
+
+        
+    </style>
+</head>
+
+<div id="manage-hotels" class="dashboard-section container">
+    <h2>Manage Your Hotels and Bookings</h2>
+    <div class="dashboard-card">
+        <h4>Your Hotels</h4>
+        <ul>
+            @if (hotels != null && hotels.Count > 0)
+            {
+                foreach (var hotel in hotels)
+                {
+                    <li>
+                        <img src="@hotel.HotelImage" alt="@hotel.Name Image" />
+                        <div>
+                            <strong>@hotel.Name</strong><br>
+                            <span class="text-muted">Location: @hotel.Address</span>
+                        </div>
+                        <div>
+                            <a href="/hotel-details/@hotel.HotelId" class="btn btn-primary btn-sm">View Details</a>
+                            <a href="/hotel-rooms/@hotel.HotelId" class="btn btn-secondary btn-sm ml-2">View Rooms</a>
+                        </div>
+                    </li>
+                }
+            }
+            else
+            {
+                <li>No hotels found.</li>
+            }
+        </ul>
+    </div>
+</div>
+
+<div id="manage-bookings" class="dashboard-section container">
+    <h2>Manage Your Bookings</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <h4>Upcoming Bookings</h4>
+                <ul>
+                    @if (upcomingBookings != null && upcomingBookings.Count > 0)
+                    {
+                        foreach (var booking in upcomingBookings)
+                        {
+                            <li>
+                                @* <img src="@booking.HotelImage" alt="@booking.HotelName Image" /> *@
+                                <div>
+                                    <strong>@booking.HotelName</strong><br>
+                                    <span class="text-muted">Booking #@booking.BookingId | Check-in: @booking.CheckInDate | Check-out: @booking.CheckOutDate</span>
+                                </div>
+                                <span class="badge badge-success">Confirmed</span>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li>No upcoming bookings found.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="dashboard-card">
+                <h4>Past Bookings</h4>
+                <ul>
+                    @if (pastBookings != null && pastBookings.Count > 0)
+                    {
+                        foreach (var booking in pastBookings)
+                        {
+                            <li>
+                               @*  <img src="@booking.HotelImage" alt="@booking.HotelName Image" /> *@
+                                <div>
+                                    <strong>@booking.HotelName</strong><br>
+                                    <span class="text-muted">Booking #@booking.BookingId | Check-in: @booking.CheckInDate | Check-out: @booking.CheckOutDate</span>
+                                </div>
+                                <span class="badge badge-primary">Completed</span>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li>No past bookings found.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+@code {
+    private List<Hotel> hotels = new();
+    private List<HotelBooking> upcomingBookings = new();
+    private List<HotelBooking> pastBookings = new();
+    private int userId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get the current user's details from local storage
+            var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+            var user = JsonSerializer.Deserialize<User>(userJson); // Deserialize user from local storage
+            userId = user?.UserId ?? 0;
+
+            // Ensure the user is authenticated
+            await authStateProvider.GetAuthenticationStateAsync();
+
+            // Get all hotels
+            var allHotels = await SearchUIService.GetAllHotels();
+
+            // Filter hotels specific to the current user
+            hotels = allHotels.Where(h => h.HotelOwnerId == userId).ToList();
+
+            // Initialize lists to hold upcoming and past bookings
+            var allUpcomingBookings = new List<HotelBooking>();
+            var allPastBookings = new List<HotelBooking>();
+
+            // Get today's date for filtering bookings
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            // Filter bookings based on hotels owned by the current user
+            foreach (var hotel in hotels)
+            {
+                var allBookings = await SearchUIService.GetAllHotelBookings(hotel.HotelId);
+
+                allUpcomingBookings.AddRange(allBookings.Where(b => b.CheckOutDate >= today));
+                allPastBookings.AddRange(allBookings.Where(b => b.CheckOutDate < today));
+            }
+
+            // Sort bookings by date
+            upcomingBookings = allUpcomingBookings.OrderBy(b => b.CheckInDate).ToList();
+            pastBookings = allPastBookings.OrderByDescending(b => b.CheckOutDate).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving data: {ex.Message}");
+        }
+    }
+    private void Logout()
+    {
+        userInfoService.ClearUser();
+        NavigationManager.NavigateTo("/login");
+    }
+}
+

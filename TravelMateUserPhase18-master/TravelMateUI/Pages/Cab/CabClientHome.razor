@@ -1,0 +1,420 @@
+﻿@page "/cabowner"
+@using Microsoft.AspNetCore.Authorization
+@using TravelMate.Models
+@using TravelMate2.Services
+@using TravelMateUI.Services
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject UserInfoService userInfoService
+@inject ISearchUIService searchUIService
+@inject IJSRuntime JSRuntime
+@inject IUserUIService userUIService
+@inject ICabBookingUIService cabBookingService
+@inject ICabUIService cabUIService
+@inject ICustomAuthenticationStateProvider authStateProvider
+@attribute [Authorize(Roles = "driver_client")]
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        .background-image {
+            /* Background image styling if required */
+        }
+
+        .badge-yes {
+            background-color: green;
+            color: white;
+        }
+
+        .badge-no {
+            background-color: red;
+            color: white;
+        }
+
+        /* Add custom styles for the popup */
+        #locationModal .modal-dialog {
+            max-width: 600px;
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+    <script>
+        function toggleAvailabilityStatus(isAvailable) {
+            var label = document.getElementById('availabilityLabel');
+            if (isAvailable) {
+                label.style.color = 'green';
+                label.innerHTML = 'Availability status: Available';
+            } else {
+                label.style.color = 'red';
+                label.innerHTML = 'Availability status: Not Available';
+            }
+        }
+
+        function showLocationSubmittedModal() {
+            var modal = new bootstrap.Modal(document.getElementById('locationSubmittedModal'));
+            modal.show();
+
+            // Automatically close the modal after 3 seconds
+            setTimeout(function () {
+                modal.hide();
+            }, 1000);
+        }
+    </script>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDyjeyU3YV0msuacUOVafevmN6KpsgncgE&callback=initMap"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="./map-functions.js"></script>
+</head>
+
+
+<body>
+    <div class="background-image">
+        <!-- Header Section -->
+        <!-- Dashboard Section -->
+        <div class="dashboard-section container">
+            @if (CabOwnerCab != null)
+            {
+                <!-- Display Cab Details -->
+                <div class="card shadow-sm my-4">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Your Cab Details</h4>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Vehicle Name:</strong> @CabOwnerCab.VehicleName</li>
+                            <li class="list-group-item"><strong>Registration Number:</strong> @CabOwnerCab.RegistrationNumber</li>
+                            <li class="list-group-item"><strong>License Number:</strong> @CabOwnerCab.LicenseNumber</li>
+                            <li class="list-group-item"><strong>Number of Seats:</strong> @CabOwnerCab.NumberOfSeats</li>
+                            <li class="list-group-item"><strong>Price per Km:</strong> @CabOwnerCab.PricePerKm</li>
+                            <li class="list-group-item"><strong>Vehicle Type:</strong> @CabOwnerCab.VehicleType</li>
+                            <li class="list-group-item"><strong>Rating:</strong> <span class="badge badge-success">@CabOwnerCab.Rating</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Availability Status and Location Section -->
+                <div class="card shadow-sm my-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h4 class="mb-0">Manage Availability and Location</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center">
+                                <label class="form-check-label me-2" id="availabilityLabel" for="flexSwitchCheckChecked">Availability status:</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="flexSwitchCheckChecked" checked="@IsAvailable" @onchange="UpdateAvailability">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Set Your Location:</strong>
+                            <!-- Inline Location Section -->
+                            <div id="locationSection" style="margin-top: 20px;">
+                                <div class="mb-3">
+                                    <label for="searchBox" class="form-label">Search for a place</label>
+                                    <input id="searchBox" class="form-control" style="width:50%" type="text" placeholder="Enter a location" @bind="userLocation" />
+                                    <button class="btn btn-primary mt-2" @onclick="searchLocation">Search</button>
+                                </div>
+                                <div id="map" style="height: 200px;"></div>
+                                <div class="d-flex justify-content-between mt-3">
+                                    <button type="button" class="btn btn-info" @onclick="GetCurrentLocationAsync">Use Current Location</button>
+                                    <button type="button" class="btn btn-success" @onclick="LocationSubmit">Submit</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current, Upcoming, and Finished Rides Section -->
+                <div class="row my-4">
+                    <!-- Current Ride -->
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">Accepted Rides</h5>
+                            </div>
+                            <div class="card-body">
+                                @if (AcceptedRides.Count > 0)
+                                {
+                                    <ul class="list-group">
+                                        @foreach (var ride in AcceptedRides)
+                                        {
+                                            <li class="list-group-item">
+                                                <p><strong>Pickup:</strong> @ride.PickupLocation</p>
+                                                <p><strong>Drop:</strong> @ride.DropLocation</p>
+                                                <p><strong>Fare:</strong> $@ride.TotalAmount</p>
+                                                <button class="btn btn-success" @onclick="() => CompleteRide(ride)">Completed</button>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>No accepted ride details available.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Ride -->
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-warning text-white">
+                                <h5 class="mb-0">Upcoming Rides</h5>
+                            </div>
+                            <div class="card-body">
+                                @if (UpCommingRides.Count > 0 && CabOwnerCab.AvailabilityStatus == true)
+                                {
+                                    <ul class="list-group">
+                                        @foreach (var ride in UpCommingRides)
+                                        {
+                                            <li class="list-group-item">
+                                                <p><strong>Pickup:</strong> @ride.PickupLocation</p>
+                                                <p><strong>Drop:</strong> @ride.DropLocation</p>
+                                                <p><strong>Fare:</strong> $@ride.TotalAmount</p>
+                                                <button class="btn btn-success" @onclick="() => AcceptRide(ride)">Accept</button>
+                                                <button class="btn btn-danger" @onclick="() => RejectRide(ride)">Reject</button>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                else if (UpCommingRides.Count > 0 && CabOwnerCab.AvailabilityStatus == false)
+                                {
+                                    <ul class="list-group">
+                                        @foreach (var ride in UpCommingRides)
+                                        {
+                                            <li class="list-group-item">
+                                                <p><strong>Pickup:</strong> @ride.PickupLocation</p>
+                                                <p><strong>Drop:</strong> @ride.DropLocation</p>
+                                                <p><strong>Fare:</strong> $@ride.TotalAmount</p>
+                                                <button class="btn btn-success" @onclick="() => AcceptRide(ride)" disabled>Accept</button>
+                                                <button class="btn btn-danger" @onclick="() => RejectRide(ride)">Reject</button>
+                                                <p>Complete the previous ride to accept this ride.</p>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+
+                                    <p>No upcoming ride details available.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Finished Ride -->
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">Finished Rides</h5>
+                            </div>
+                            <div class="card-body">
+                                @if (PastRides.Count > 0)
+                                {
+                                    <ul class="list-group">
+                                        @foreach (var ride in PastRides)
+                                        {
+                                            <li class="list-group-item">
+                                                <p><strong>Pickup:</strong> @ride.PickupLocation</p>
+                                                <p><strong>Drop:</strong> @ride.DropLocation</p>
+                                                <p><strong>Fare:</strong> $@ride.TotalAmount</p>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p>No past ride details available.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Display "No Cab Found" Message -->
+                <div class="alert alert-warning text-center my-4">
+                    <h3 class="alert-heading">No Cabs Found</h3>
+                    <p>You don't have any cabs registered at the moment. To start adding cabs, click the button below.</p>
+                    <a class="btn btn-primary btn-lg mt-3" @onclick="AddCab">Add Cab</a>
+                </div>
+            }
+        </div>
+        <!-- Location Submitted Modal -->
+        <div class="modal fade" id="locationSubmittedModal" tabindex="-1" aria-labelledby="locationSubmittedLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="locationSubmittedLabel">Location Submitted</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Your location has been successfully submitted!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
+
+@code {
+    private Cab? CabOwnerCab { get; set; }
+    private bool IsAvailable { get; set; }
+    private bool isMapVisible { get; set; } = false;
+    private decimal userLatitude = 12.97194000M;
+    private decimal userLongitude = 77.59369000M;
+    private string userLocation;
+
+    private List<CabBookingModel> AllRides { get; set; } = new List<CabBookingModel>();
+
+    private List<CabBookingModel> UpCommingRides { get; set; } = new List<CabBookingModel>();
+    private List<CabBookingModel> PastRides { get; set; } = new List<CabBookingModel>();
+    private List<CabBookingModel> AcceptedRides { get; set; } = new List<CabBookingModel>();
+
+    private CabBookingModel CurrentRide { get; set; } = new CabBookingModel();
+
+    protected async override Task OnInitializedAsync()
+    {
+
+        await authStateProvider.GetAuthenticationStateAsync();
+        var cabOwner = userInfoService._currentUser;
+        if (cabOwner != null)
+        {
+            CabOwnerCab = await cabUIService.GetCab(cabOwner.UserId);
+            IsAvailable = CabOwnerCab?.AvailabilityStatus ?? false;
+            AllRides = await searchUIService.GetAllCabBookings();
+        }
+        if (CabOwnerCab != null)
+        {
+
+            UpCommingRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Pending).ToList();
+            PastRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Finished).ToList();
+            AcceptedRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Accepted).ToList();
+        }
+    }
+
+    private async Task UpdateAvailability(ChangeEventArgs e)
+    {
+        IsAvailable = (bool)e.Value;
+        if (CabOwnerCab != null)
+        {
+            CabOwnerCab.AvailabilityStatus = IsAvailable;
+            await cabUIService.UpdateCab(CabOwnerCab, CabOwnerCab.DriverId);
+        }
+        await JSRuntime.InvokeVoidAsync("toggleAvailabilityStatus", IsAvailable);
+        await ShowMap();
+    }
+
+    private async Task ShowMap()
+    {
+        isMapVisible = true;
+        await InitializeMapAsync();
+    }
+
+    private async Task InitializeMapAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("initializeMap", userLatitude, userLongitude);
+    }
+
+    private async Task searchLocation()
+    {
+        var result = await JSRuntime.InvokeAsync<LocationResult>("showLocation", userLocation);
+        if (CabOwnerCab != null)
+        {
+            CabOwnerCab.Latitude = result.latitude;
+            CabOwnerCab.Longitude = result.longitude;
+        }
+    }
+
+    private async Task LocationSubmit()
+    {
+        if (CabOwnerCab != null)
+        {
+            await cabUIService.UpdateCab(CabOwnerCab, CabOwnerCab.DriverId);
+            await JSRuntime.InvokeVoidAsync("showLocationSubmittedModal");
+
+        }
+    }
+
+    private void AddCab()
+    {
+        Navigation.NavigateTo("/register-cab");
+    }
+
+    public class LocationResult
+    {
+        public decimal latitude { get; set; }
+        public decimal longitude { get; set; }
+    }
+    private async Task GetCurrentLocationAsync()
+    {
+        try
+        {
+            var result = await JSRuntime.InvokeAsync<LocationResult>("getCurrentLocation");
+            if (result != null)
+            {
+                userLatitude = result.latitude;
+                userLongitude = result.longitude;
+            }
+            await InitializeMapAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching location: {ex.Message}");
+        }
+    }
+    private async Task AcceptRide(CabBookingModel cabBooking)
+    {
+        await cabBookingService.UpdateCabBooking(cabBooking, BookingStatus.Accepted);
+
+        if (CabOwnerCab != null)
+        {
+            CabOwnerCab.AvailabilityStatus = false;
+            await cabUIService.UpdateCab(CabOwnerCab, CabOwnerCab.DriverId);
+        }
+
+        AllRides = await searchUIService.GetAllCabBookings();
+        AcceptedRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Accepted).ToList();
+        UpCommingRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Pending).ToList();
+
+    }
+
+    private async Task RejectRide(CabBookingModel cabBooking)
+    {
+        await cabBookingService.UpdateCabBooking(cabBooking, BookingStatus.Canceled);
+
+        AllRides = await searchUIService.GetAllCabBookings();
+
+        AcceptedRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Accepted).ToList();
+        UpCommingRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Pending).ToList();
+    }
+    private async Task CompleteRide(CabBookingModel cabBooking)
+    {
+        await cabBookingService.UpdateCabBooking(cabBooking, BookingStatus.Finished);
+        if (CabOwnerCab != null)
+        {
+            CabOwnerCab.AvailabilityStatus = true;
+            await cabUIService.UpdateCab(CabOwnerCab, CabOwnerCab.DriverId);
+        }
+        AllRides = await searchUIService.GetAllCabBookings();
+
+        AcceptedRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Accepted).ToList();
+        PastRides = AllRides.Where(c => c.CabId == CabOwnerCab.CabId && c.BookingStatus == BookingStatus.Finished).ToList();
+
+    }
+
+}

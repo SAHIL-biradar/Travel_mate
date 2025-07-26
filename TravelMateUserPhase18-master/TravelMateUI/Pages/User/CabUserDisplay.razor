@@ -1,0 +1,191 @@
+﻿@page "/bookcab"
+@using System.Text.Json
+@using TravelMate.Models
+@using TravelMate2.Services
+@using TravelMateUI.Services
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject ICabUIService CabService
+@inject ISearchUIService SearchUIService
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+          
+<style>
+    .cab-item {
+        transition: transform 0.3s;
+    }
+
+        .cab-item:hover {
+            transform: scale(1.05);
+            border-color: lightblue !important;
+            border-width: medium !important;
+        }
+
+    .map-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .map {
+        width: 100%;
+        height: 400px;
+    }
+</style>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col">
+            <h2 class="card-title"><i class="fas fa-search"></i> Find Your Perfect Ride</h2>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label for="fromLocation"><i class="fas fa-location-arrow text-primary"></i> Pick-up Location:</label>
+                        <input type="text" id="fromLocation" @bind="fromLocation" class="form-control" placeholder="Enter pick-up location" @oninput="HandleFromLocationChange" required />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="toLocation"><i class="fas fa-map-marker-alt text-danger"></i> Drop-off Location:</label>
+                        <input type="text" id="toLocation" @bind="toLocation" class="form-control" placeholder="Enter drop-off location" @oninput="HandleToLocationChange" required />
+                    </div>
+
+                    <button class="btn btn-primary btn-block" @onclick="OnSearchClicked">
+                        <i class="fas fa-search"></i> Find Cabs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <div id="map" class="map"></div>
+    </div>
+    @if (isRouteSearched && nearbyCabs == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (isRouteSearched && nearbyCabs.Count == 0)
+    {
+        <div class="text-center" style="padding-top 50px">
+            <p class="lead">Oops Cabs not available.</p>
+        </div>
+    }
+    else if (isRouteSearched)
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h2 class="card-title text-success mb-3"><i class="fas fa-car"></i> Available Rides</h2>
+                        <div class="row">
+                            @foreach (var cab in nearbyCabs)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="cab-item p-3 border rounded hover-shadow">
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <img src="@cab.CabPhoto" alt="@cab.VehicleName" class="img-fluid" style="max-height: 200px; width: 100%; object-fit: cover;" />
+                                            </div>
+                                            <div class="col-12 mt-2">
+                                                <h4 class="text-primary">@cab.VehicleName</h4>
+                                                <p class="text-muted">@cab.VehicleType</p>
+                                                <p><i class="fas fa-users text-info"></i> @cab.NumberOfSeats seats | <i class="fas fa-star text-warning"></i> @cab.Rating</p>
+                                                <p><i class="fas text-success"></i> ₹@cab.PricePerKm per km</p>
+                                                <button @onclick="() => BookCab(cab)" class="btn btn-success btn-block">
+                                                    <i class="fas fa-check"></i> Book Now
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDyjeyU3YV0msuacUOVafevmN6KpsgncgE&libraries=places" async></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="./cabBooking.js"></script>
+
+
+@code {
+    private List<Cab> nearbyCabs = new();
+    private bool isRouteSearched = false;
+    private string fromLocation;
+    private string toLocation;
+    private VehicleType? selectedVehicleType;
+    private decimal userLatitude;
+    private decimal userLongitude;
+    private double Distance;
+    private CabBookingModel cabBooking { get; set; } = new CabBookingModel();
+
+
+    private void HandleFromLocationChange(ChangeEventArgs e)
+    {
+        fromLocation = e.Value.ToString();
+        JSRuntime.InvokeVoidAsync("initializeAutocomplete", "fromLocation");
+    }
+
+    private void HandleToLocationChange(ChangeEventArgs e)
+    {
+        toLocation = e.Value.ToString();
+        JSRuntime.InvokeVoidAsync("initializeAutocomplete", "toLocation");
+    }
+
+    private async Task OnSearchClicked()
+    {
+        isRouteSearched = true;
+        await LoadNearbyCabsAsync();
+        await InitializeMapAsync();
+    }
+
+    private async Task LoadNearbyCabsAsync()
+    {
+        try
+        {
+            var cabs = await SearchUIService.GetAllCabs(); // Adjust method if needed
+            if (cabs != null)
+            {
+                nearbyCabs = cabs.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading nearby cabs: {ex.Message}");
+        }
+    }
+
+
+    private async Task InitializeMapAsync()
+    {
+        if (isRouteSearched)
+        {
+            await JSRuntime.InvokeVoidAsync("initializeMap", userLatitude, userLongitude);
+            var result = await JSRuntime.InvokeAsync<DistanceResult>("showRouteByAddress", fromLocation, toLocation);
+            if (result != null)
+            { Distance = result.distance; }
+
+        }
+    }
+
+    private void BookCab(Cab selectedCab)
+    {
+        cabBooking.PickupLocation = fromLocation;
+        cabBooking.DropLocation = toLocation;
+        cabBooking.Distance = Distance;
+        cabBooking.CabId = selectedCab.CabId;
+        var cabBookingString = JsonSerializer.Serialize(cabBooking);
+        NavigationManager.NavigateTo($"/cabdetails/{selectedCab.DriverId}/{cabBookingString}");
+    }
+
+    public class DistanceResult
+    {
+        public double distance { get; set; }
+    }
+}

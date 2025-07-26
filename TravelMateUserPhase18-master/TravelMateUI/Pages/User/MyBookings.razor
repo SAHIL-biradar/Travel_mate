@@ -1,0 +1,336 @@
+﻿@page "/mybookings"
+@inject NavigationManager Navigate
+@using System.Text.Json
+@using TravelMate.Models
+@using TravelMate2.Services
+@inject IHotelBookingUIService HotelBookingService
+@inject ICabBookingUIService CabBookingService
+@inject IJSRuntime JSRuntime
+
+<style>
+    /* Overall container styling */
+    .container {
+        padding: 20px 10px;
+    }
+
+    /* Horizontal scrolling layout */
+    .horizontal-scroll {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        scroll-behavior: smooth;
+    }
+
+        .horizontal-scroll::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-thumb {
+            background-color: #007bff;
+            border-radius: 10px;
+        }
+
+            .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+                background-color: #0056b3;
+            }
+
+    /* Card styling */
+    .booking-card {
+        min-width: 300px;
+        margin-right: 20px;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #f8f9fa, #ffffff);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    }
+
+        .booking-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+
+    .card-header {
+        background-color: #007bff;
+        color: white;
+        padding: 15px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .card-title {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .card-body {
+        padding: 20px;
+    }
+
+    .card-text {
+        font-size: 0.95rem;
+        margin-bottom: 12px;
+    }
+
+    .text-success {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+
+    /* Button styles */
+    .cancel-btn {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        transition: background-color 0.3s ease-in-out;
+    }
+
+        .cancel-btn:hover {
+            background-color: #c82333;
+        }
+
+    .disabled-btn {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+    }
+
+    /* No items section */
+    .no-items-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 60vh;
+        text-align: center;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-items-content {
+        max-width: 500px;
+    }
+
+    .no-items-image {
+        max-width: 100%;
+        height: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    .explore-button {
+        background-color: #007bff;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 50px;
+        text-decoration: none;
+        transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+    }
+
+        .explore-button:hover {
+            background-color: #0056b3;
+            transform: translateY(-3px);
+        }
+
+    h4 {
+        font-weight: bold;
+        color: #343a40;
+        margin-bottom: 1rem;
+    }
+
+    p {
+        color: #6c757d;
+        margin-bottom: 2rem;
+    }
+</style>
+<div class="text-center">
+    <h3 class="hover-card">My Bookings</h3>
+</div>
+
+@if (hotelBookings == null && cabBookings == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="container">
+        <!-- Hotel Bookings Section -->
+        <h4>Hotel Bookings</h4>
+        @if (!hotelBookings.Any())
+        {
+            <div class="no-items-container">
+                <div class="no-items-content">
+                    <img src="./images5.png" alt="No Hotel Bookings" class="no-items-image" />
+                    <h4>You have no hotel bookings!</h4>
+                    <p>Start exploring and book your favorite hotels.</p>
+                    <a href="/" class="btn explore-button">Explore Hotels</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="horizontal-scroll">
+                @foreach (var booking in hotelBookings)
+                {
+                    <div class="card booking-card">
+                        <div class="card-header text-center">
+                            <h5 class="card-title">Hotel Name: @booking.HotelName</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text"><strong>Room Name:</strong> @booking.RoomId</p>
+                            <p class="card-text"><strong>Total Amount:</strong> @booking.TotalAmount</p>
+                            <p class="card-text"><strong>Booking Status:</strong> @booking.BookingStatus</p>
+                            <p class="card-text"><strong>Check-in Date:</strong> @booking.CheckInDate.ToShortDateString()</p>
+                            <p class="card-text"><strong>Check-out Date:</strong> @booking.CheckOutDate.ToShortDateString()</p>
+
+                            @if (DateOnly.FromDateTime(DateTime.Now) > booking.CheckOutDate)
+                            {
+                                <p class="card-text text-success"><strong>Stay Completed</strong></p>
+                                <p class="card-text text-muted">It was a pleasure hosting you. Thank you for choosing our hotel.</p>
+                                <button class="btn btn-info" @onclick="() => AddRating(booking.HotelId)">Add Rating</button>
+                            }
+                            else if (booking.CheckInDate > DateOnly.FromDateTime(DateTime.Now).AddDays(1))
+                            {
+                                <button class="btn cancel-btn" @onclick="() => CancelHotelBooking(booking.BookingId)">Cancel Booking</button>
+                            }
+                            else
+                            {
+                                <button class="btn disabled-btn" disabled>Cannot Cancel</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Cab Bookings Section -->
+        <h4>Cab Bookings</h4>
+        @if (!cabBookings.Any())
+        {
+            <div class="no-items-container">
+                <div class="no-items-content">
+                    <img src="./images5.png" alt="No Cab Bookings" class="no-items-image" />
+                    <h4>You have no cab bookings!</h4>
+                    <p>Start exploring and book your favorite cabs.</p>
+                    <a href="/" class="btn explore-button">Explore Cabs</a>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="horizontal-scroll">
+                @foreach (var booking in cabBookings)
+                {
+                    <div class="card booking-card">
+                        <div class="card-header text-center">
+                            <h5 class="card-title">Cab Booking ID: @booking.CabBookingId</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text"><strong>Cab ID:</strong> @booking.CabId</p>
+                            <p class="card-text"><strong>Pick-up Location:</strong> @booking.PickupLocation</p>
+                            <p class="card-text"><strong>Drop-off Location:</strong> @booking.DropLocation</p>
+                            <p class="card-text"><strong>Distance:</strong> @booking.Distance km</p>
+                            <p class="card-text"><strong>Total Amount:</strong> @booking.TotalAmount.ToString("C")</p>
+                            <p class="card-text"><strong>Booking Status:</strong> @booking.BookingStatus</p>
+                            @if (booking.BookingStatus == BookingStatus.Finished)
+                            {
+                                <p class="card-text text-success"><strong>Booking Completed</strong></p>
+                                <p class="card-text text-muted">Thank you for using our cab service.</p>
+                                <button class="btn btn-info" @onclick="() => AddCabRating(booking.CabId)">Add Rating</button>
+                            }
+                            else if (booking.BookingStatus == BookingStatus.Pending)
+                            {
+                                <button class="btn cancel-btn" @onclick="() => CancelCabBooking(booking.CabBookingId)">Cancel Booking</button>
+                            }
+                            else
+                            {
+                                <button class="btn disabled-btn" disabled>Cannot Cancel</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<HotelBooking> hotelBookings;
+    private List<CabBookingModel> cabBookings;
+    private int userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBookings();
+    }
+
+    private async Task LoadBookings()
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+        var user = JsonSerializer.Deserialize<User>(userJson);
+        userId = user?.UserId ?? 0;
+
+        if (userId > 0)
+        {
+            hotelBookings = await HotelBookingService.GetAllBookings(userId);
+            cabBookings = await CabBookingService.GetAllCabBookings(userId);
+        }
+        else
+        {
+            hotelBookings = new List<HotelBooking>();
+            cabBookings = new List<CabBookingModel>();
+        }
+    }
+
+    private async Task CancelHotelBooking(int bookingId)
+    {
+        var booking = hotelBookings.FirstOrDefault(b => b.BookingId == bookingId);
+        if (booking != null && booking.CheckInDate > DateOnly.FromDateTime(DateTime.Now).AddDays(1))
+        {
+            await HotelBookingService.DeleteBooking(bookingId, userId);
+            await LoadBookings(); // Refresh the list after cancellation
+        }
+        else
+        {
+            // Handle the case where cancellation is not allowed
+            await JSRuntime.InvokeVoidAsync("alert", "Booking cannot be canceled less than one day before check-in.");
+        }
+    }
+
+    private async Task CancelCabBooking(int bookingId)
+    {
+        var booking = cabBookings.FirstOrDefault(b => b.CabBookingId == bookingId);
+        if (booking != null && booking.BookingStatus == BookingStatus.Pending)
+        {
+            await CabBookingService.DeleteCabBooking(bookingId, userId);
+            await LoadBookings(); // Refresh the list after cancellation
+        }
+        else
+        {
+            // Handle the case where cancellation is not allowed
+            await JSRuntime.InvokeVoidAsync("alert", "Booking cannot be canceled if it is not pending.");
+        }
+    }
+
+    private void AddRating(int hotelId)
+    {
+        Navigate.NavigateTo($"/hotelrating/{hotelId}");
+    }
+    private void AddCabRating(int cabId)
+    {
+        Navigate.NavigateTo($"/cabrating/{cabId}");
+    }
+}
+
+
+
+         

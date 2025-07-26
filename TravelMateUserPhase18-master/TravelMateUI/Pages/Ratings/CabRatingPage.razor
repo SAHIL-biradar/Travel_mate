@@ -1,0 +1,210 @@
+﻿@page "/cabrating/{cabId:int}"
+@using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@using TravelMate.Models
+@using TravelMate2.Services
+@using TravelMateUI.Models.Ratings
+@using TravelMateUI.Services
+@using TravelMateUI.Services.Ratings
+@inject ISearchUIService searchUIService
+@inject NavigationManager Navigation
+@inject ICabRatingUIService cabRatingUIService
+@inject IJSRuntime JSRuntime
+@inject ICabUIService cabservice
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+<div class="rating-page">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="rating-card">
+                    <div class="rating-header">
+                        <h2>Rate Your Cab Experience</h2>
+                        <p>Your feedback helps us improve our cab services!</p>
+                    </div>
+                    <EditForm Model="@ratingModel" OnValidSubmit="AddRating">
+                        <DataAnnotationsValidator />
+
+                        <div class="rating-stars">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                int currentRating = i;
+                                <span class="star @(currentRating <= ratingModel.Rating ? "selected" : "")"
+                                      @onclick="() => SetRating(currentRating)">
+                                    <i class="fas fa-star"></i>
+                                </span>
+                            }
+                        </div>
+                        <div class="rating-text">@GetRatingText(ratingModel.Rating)</div>
+
+                        <div class="form-group mt-4">
+                            <label for="review">Share your experience:</label>
+                            <InputTextArea id="review" class="form-control" @bind-Value="ratingModel.Review" rows="4" placeholder="Tell us more about your journey..." />
+                            <ValidationMessage For="@(() => ratingModel.Review)" />
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-submit">
+                                <i class="fas fa-paper-plane me-2"></i> Submit Feedback
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .rating-page {
+        background: linear-gradient(135deg, #6dd5ed);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        padding: 2rem 0;
+    }
+
+    .rating-card {
+        background-color: antiquewhite;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+        .rating-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+    .rating-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+        .rating-header h2 {
+            color: #333;
+            font-weight: 700;
+        }
+
+        .rating-header p {
+            color: #666;
+        }
+
+    .rating-stars {
+        font-size: 3rem;
+        display: flex;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .star {
+        color: #ffd700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin: 0 0.2rem;
+    }
+
+        .star:hover, .star.selected {
+            transform: scale(1.2);
+            color: #ffaa00;
+        }
+
+    .rating-text {
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-control {
+        border: 2px solid #ddd;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+
+        .form-control:focus {
+            border-color: #2193b0;
+            box-shadow: 0 0 0 0.2rem rgba(33, 147, 176, 0.25);
+        }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #2193b0, #6dd5ed);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        transition: all 0.3s ease;
+    }
+
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(33, 147, 176, 0.4);
+        }
+</style>
+
+@code {
+    [Parameter]
+    public int cabId { get; set; }
+    public Cab cab = new Cab();
+    private RatingModel ratingModel = new RatingModel();
+    private int userId;
+    private CabRating cabRating = new CabRating();
+
+    private void SetRating(int rating)
+    {
+        ratingModel.Rating = rating;
+    }
+
+    private string GetRatingText(int rating)
+    {
+        return rating switch
+        {
+            1 => "Disappointing",
+            2 => "Could be better",
+            3 => "Good",
+            4 => "Great!",
+            5 => "Exceptional!",
+            _ => "How was your experience?"
+        };
+    }
+
+    private async Task AddRating()
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+        var user = JsonSerializer.Deserialize<User>(userJson);
+        userId = user?.UserId ?? 0;
+        cabRating.CabId = cabId;
+        cabRating.UserId = userId;
+        cabRating.Review = ratingModel.Review;
+        cabRating.Rating = ratingModel.Rating;
+        if (userId > 0)
+        {
+            await cabRatingUIService.AddCabRating(cabRating, userId);
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            Console.WriteLine("User ID not found");
+        }
+    }
+
+    public class RatingModel
+    {
+        [Required]
+        [Range(1, 5, ErrorMessage = "Please select a rating")]
+        public int Rating { get; set; }
+
+        [Required(ErrorMessage = "Please share your thoughts")]
+        [MinLength(10, ErrorMessage = "Please provide more details (at least 10 characters)")]
+        public string Review { get; set; }
+    }
+}

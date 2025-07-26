@@ -1,0 +1,167 @@
+﻿@page "/myratings"
+@using System.Text.Json
+@using TravelMateUI.Models.Ratings
+@using TravelMateUI.Services.Ratings
+@using TravelMateUI.Services
+@using TravelMate.Models
+@inject ICabRatingUIService CabRatingService
+@inject IHotelRatingUIService HotelRatingService
+@inject LocalStorageService LocalStorageService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container">
+    <h2 class="text-center mb-4">My Travel Ratings</h2>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h3 class="mb-3">My Cab Ratings</h3>
+            @if (cabRatings == null)
+            {
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            }
+            else if (cabRatings.Count == 0)
+            {
+                <div class="alert alert-info" role="alert">
+                    You have not rated any cabs yet. Start exploring and book your next ride!
+                </div>
+            }
+            else
+            {
+                @foreach (var rating in cabRatings)
+                {
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Cab Rating</h5>
+                            <div class="mb-2">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    <i class="bi @(i <= rating.Rating ? "bi-star-fill" : "bi-star") text-warning"></i>
+                                }
+                                <span class="ms-2">@rating.Rating / 5</span>
+                            </div>
+                            <p class="card-text">@rating.Review</p>
+                            <div class="d-flex justify-content-end">
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => EditCabRating(rating.CabRatingId)">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCabRating(rating.CabRatingId)">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="col-md-6">
+            <h3 class="mb-3">My Hotel Ratings</h3>
+            @if (hotelRatings == null)
+            {
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            }
+            else if (hotelRatings.Count == 0)
+            {
+                <div class="alert alert-info" role="alert">
+                    You have not rated any cabs yet. Start exploring and book your next ride!
+                </div>
+            }
+            else
+            {
+                @foreach (var rating in hotelRatings)
+                {
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Hotel Rating</h5>
+                            <div class="mb-2">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    <i class="bi @(i <= rating.Rating ? "bi-star-fill" : "bi-star") text-warning"></i>
+                                }
+                                <span class="ms-2">@rating.Rating / 5</span>
+                            </div>
+                            <p class="card-text">@rating.Review</p>
+                            <div class="d-flex justify-content-end">
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => EditHotelRating(rating.HotelRatingId)">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteHotelRating(rating.HotelRatingId)">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CabRating> cabRatings;
+    private List<HotelRating> hotelRatings;
+    private int currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userJson = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "currentUser");
+        var user = JsonSerializer.Deserialize<User>(userJson);
+
+        if (user != null)
+        {
+            currentUserId = user.UserId;
+            cabRatings = await CabRatingService.GetCabRatingsByUser(currentUserId);
+            hotelRatings = await HotelRatingService.GetAllHotelRatingsAsync(currentUserId);
+        }
+        else
+        {
+            cabRatings = new List<CabRating>();
+            hotelRatings = new List<HotelRating>();
+        }
+    }
+
+    private void EditCabRating(int cabRatingId)
+    {
+        Navigation.NavigateTo($"/edit-cab-rating/{cabRatingId}");
+    }
+
+    private async Task DeleteCabRating(int cabRatingId)
+    {
+        await CabRatingService.DeleteCabRating(cabRatingId, currentUserId);
+        cabRatings = await CabRatingService.GetCabRatingsByUser(currentUserId);
+    }
+
+    private void EditHotelRating(int hotelRatingId)
+    {
+        Navigation.NavigateTo($"/edit-hotel-rating/{hotelRatingId}");
+    }
+
+    private async Task DeleteHotelRating(int hotelRatingId)
+    {
+        await HotelRatingService.DeleteHotelRatingAsync(hotelRatingId, currentUserId);
+        hotelRatings = await HotelRatingService.GetAllHotelRatingsAsync(currentUserId);
+    }
+}
+
+<style>
+    .no-items-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+    }
+
+    .no-items-content {
+        text-align: center;
+    }
+
+    .no-items-image {
+        max-width: 200px;
+        margin-bottom: 20px;
+    }
+</style>

@@ -1,0 +1,55 @@
+﻿@model List<AdminMvcUi.Models.PackagePro>
+
+@{
+    ViewBag.Title = "Package Pro Management";
+}
+
+<h2>Package Pro Management</h2>
+
+<a href="@Url.Action("Add", "AdminUi")" class="btn btn-success">Add Package</a>
+
+<table class="table table-striped table-bordered">
+    <thead class="thead-dark">
+        <tr>
+            <th>Package Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Available Dates</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var package in Model)
+        {
+            <tr>
+                <td>@package.PackageName</td>
+                <td>@package.PackageDescription</td>
+                <td>@package.Price</td>
+                <td>@package.AvailableDates</td>
+                <td>
+                    <a href="@Url.Action("Edit", "AdminUi", new { id = package.PackageId })" class="btn btn-primary btn-sm">Edit</a>
+                    <button class="btn btn-danger btn-sm" onclick="deletePackage(@package.PackageId)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        function deletePackage(packageId) {
+            if (confirm('Are you sure you want to delete this package?')) {
+                $.ajax({
+                    url: '@Url.Action("Deletepro", "AdminUi")/' + packageId,
+                    type: 'DELETE',
+                    success: function () {
+                        location.reload();
+                    },
+                    error: function (xhr, status, error) {
+                        alert('Error deleting package: ' + error);
+                    }
+                });
+            }
+        }
+    </script>
+}

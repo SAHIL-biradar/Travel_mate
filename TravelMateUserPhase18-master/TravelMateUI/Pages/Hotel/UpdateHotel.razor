@@ -1,0 +1,219 @@
+﻿@page "/hotel-details/{hotelId:int}"
+@using Microsoft.AspNetCore.Authorization
+@using TravelMate.Models
+@using TravelMate2.Services
+@layout MinimalLayout
+@inject IHotelUIService HotelService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject UserInfoService userInfoService
+@attribute [Authorize(Roles = "hotel_owner")]
+
+
+<!-- Include Bootstrap and Font Awesome -->
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .details-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+            .details-container h2 {
+                margin-bottom: 20px;
+            }
+
+        footer {
+            background-color: #343a40;
+            color: #ffffff;
+            padding: 2rem 0;
+        }
+
+            footer a {
+                color: #ffc107;
+            }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDyjeyU3YV0msuacUOVafevmN6KpsgncgE&callback=initMap"></script>
+    <script src="./map-functions.js"></script>
+</head>
+
+<div class="details-container">
+    <h2 class="text-center"><i class="fas fa-hotel"></i> Hotel Details</h2>
+    @if (hotel != null)
+    {
+        <EditForm Model="@hotel" OnValidSubmit="Update_Hotel">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="mb-3">
+                <label for="name" class="form-label">Hotel Name</label>
+                <InputText id="name" class="form-control" @bind-Value="hotel.Name" placeholder="Enter the hotel name" />
+            </div>
+
+            <div class="mb-3">
+                <label for="address" class="form-label">Address</label>
+                <InputText id="address" class="form-control" @bind-Value="hotel.Address" placeholder="Enter the address" />
+            </div>
+
+            <div class="mb-3">
+                <label for="city" class="form-label">City</label>
+                <InputText id="city" class="form-control" @bind-Value="hotel.City" placeholder="Enter the city" />
+            </div>
+
+            <div class="mb-3">
+                <label for="state" class="form-label">State</label>
+                <InputText id="state" class="form-control" @bind-Value="hotel.State" placeholder="Enter the state" />
+            </div>
+
+            <div class="mb-3">
+                <label for="nationality"><i class="fas fa-globe"></i> Select Nationality:</label>
+                <InputSelect id="nationality" class="form-control" @bind-Value="hotel.Country">
+                    <option value="">Select Nationality</option>
+                    @foreach (var type in Enum.GetValues(typeof(Nationality)))
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="mb-3">
+                <label for="zipCode" class="form-label">Zip Code</label>
+                <InputText id="zipCode" class="form-control" @bind-Value="hotel.ZipCode" placeholder="Enter the zip code" />
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <InputTextArea id="description" class="form-control" @bind-Value="hotel.Description" rows="4" placeholder="Enter a brief description of the hotel" />
+            </div>
+            <div class="mb-3">
+                <label for="latitude" class="form-label">Latitude</label>
+                <InputNumber id="latitude" class="form-control" @bind-Value="hotel.Latitude" placeholder="Enter the latitude" />
+            </div>
+
+            <div class="mb-3">
+                <label for="longitude" class="form-label">Longitude</label>
+                <InputNumber id="longitude" class="form-control" @bind-Value="hotel.Longitude" placeholder="Enter the longitude" />
+            </div>
+
+            <div class="mb-3">
+                <strong>Set Your Location:</strong>
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#locationModal1">
+                    Set Location
+                </button>
+            </div>
+
+            <div class="mb-3">
+                <label for="rating" class="form-label">Rating</label>
+                <InputNumber id="rating" class="form-control" @bind-Value="hotel.Rating" placeholder="Enter the rating" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Update Hotel</button>
+        </EditForm>
+        <div class="modal fade" id="locationModal1" tabindex="-1" aria-labelledby="locationModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="locationModalLabel">Set Your Location</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="searchBox" class="form-label">Search for a place</label>
+                            <input id="searchBox" class="form-control" type="text" placeholder="Enter a location" @bind="hotelLocation" />
+                            <button class="btn btn-primary mt-2" @onclick="searchLocation">Search</button>
+                        </div>
+                        <div id="map" style="height: 400px;"></div>
+                        <div class="d-flex justify-content-between mt-3">
+                            <button type="button" class="btn btn-success" @onclick="GetCurrentLocationAsync">Use Current Location</button>
+                            <button type="button" class="btn btn-success" @onclick="LocationSubmit" data-bs-dismiss="modal">Submit</button>
+                            <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <p>Loading...</p>
+    }
+</div>
+
+@code {
+    [Parameter] public int hotelId { get; set; }
+    private Hotel hotel;
+    private decimal hotelLatitude = 12.97194000M;
+    private decimal hotelLongitude = 77.59369000M;
+    private string hotelLocation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var userId = userInfoService._currentUser.UserId;
+            hotel = await HotelService.Get(hotelId,userId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading hotel details: {ex.Message}");
+        }
+    }
+
+    private async Task Update_Hotel()
+    {
+        try
+        {
+            var userId = userInfoService._currentUser.UserId;
+            hotel.Latitude = hotelLatitude;
+            hotel.Longitude = hotelLongitude;
+            await HotelService.Update(hotel, userId);
+            Navigation.NavigateTo("/hotel-owner-home");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating hotel: {ex.Message}");
+        }
+    }
+    private async Task GetCurrentLocationAsync()
+    {
+        try
+        {
+            var result = await JSRuntime.InvokeAsync<LocationResult>("getCurrentLocation");
+            if (result != null)
+            {
+                hotelLatitude = result.latitude;
+                hotelLongitude = result.longitude;
+            }
+            await InitializeMapAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching location: {ex.Message}");
+        }
+    }
+    private async Task InitializeMapAsync()
+    {
+        await JSRuntime.InvokeVoidAsync("initializeMap", hotelLatitude, hotelLongitude);
+
+    }
+    private async Task searchLocation()
+    {
+        var result = await JSRuntime.InvokeAsync<LocationResult>("showLocation", hotelLocation);
+        hotel.Latitude = result.latitude;
+        hotel.Longitude = result.longitude;
+    }
+    private async Task LocationSubmit()
+    {
+
+    }
+}
